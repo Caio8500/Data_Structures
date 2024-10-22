@@ -1,0 +1,1 @@
+gcc main.c sLinkedList.c hash_map.c -g -o app
