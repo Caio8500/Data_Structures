@@ -9,6 +9,7 @@ Write your code in this editor and press "Run" button to compile and execute it.
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include "sLinkedList.h"
 /*
 quick reminder on the build process, during linkage, the compiler will assigne the definition of functions
@@ -33,17 +34,175 @@ or not
 */
 
 /* private functions that won't be defined on the header file in order to hide them from the user */
-int calculate_cycle_len(SLinkedList* node);
-int get_cycle_pos(SLinkedList* head, int len);
+int calculate_cycle_len(SLinkedListNode* node);
+int get_cycle_pos(SLinkedListNode* head, int len);
 
-SLinkedList* SLinkedListCreateNode(int val) {
-    SLinkedList* new_node = malloc(sizeof(SLinkedList));
+
+/* Creators */
+SLinkedList* SLinkedListCreate(int n_elements, size_t data_size){
+    SLinkedList* new_list = malloc(sizeof(SLinkedList));
+    new_list->n_elements = n_elements;
+    new_list->data_size = data_size;
+    new_list->head = NULL;
+    new_list->tail = NULL;
+    return new_list;
+}
+
+
+SLinkedListNode* SLinkedListCreateNode(SLinkedList* list, void* data) {
+    SLinkedListNode* new_node = malloc(sizeof(SLinkedListNode));
     new_node->next = NULL;
-    new_node->val = val;
+    new_node->data = malloc(list->data_size);
+    memcpy(new_node->data, data, list->data_size); // try my implementation later
     return new_node;
 }
 
-int SLinkedListDump(SLinkedList* head){
+/* Adders */
+void SLinkedListAddAtHead(SLinkedList* list, void* data) {
+    SLinkedListNode* new_node = SLinkedListCreateNode(list, data);
+    new_node->next = list->head; // new head->next points to previous head
+    list->head = new_node;
+    if (list->head->next == NULL)
+        list->tail = list->head;
+}
+
+void SLinkedListAddAtTail(SLinkedList* list, void* data) {
+    if(list->head == NULL)
+        printf("*** %s Warning: The list is empty, adding node at head... ***\n", __func__);
+    SLinkedListNode* new_node = SLinkedListCreateNode(list, data);
+    SLinkedListNode* current_node = list->head; // we have to use a local clone here in order to not unwillingly alter the head of the list since we pass it by ref
+    while(current_node->next != NULL){
+        current_node = current_node->next;
+    }
+    current_node->next = new_node;
+    list->tail = new_node;
+}
+
+bool SLinkedListAddAtIndex(SLinkedList* list, int index, void* data) {
+    SLinkedListNode* new_node = SLinkedListCreateNode(list, data);
+    if(index == 0){
+        SLinkedListAddAtHead(list, data);
+        return 0;
+    }
+    SLinkedListNode* current_node = list->head;
+    for(int i = 0; i<index-1; i++){
+        // we must stop at the index prior to the target in order to rearrange the 'next' pointers
+        if (current_node->next == NULL){
+            // if we're at the tail and the for loop is not done yet
+            printf("%s: index %d is invalid!\n",__func__, index);
+            return 1;
+        }
+        current_node = current_node->next;
+    }
+    // shifting 'next' pointers here 
+    new_node->next = current_node->next;
+    current_node->next  = new_node;
+    if(current_node->next == NULL){
+        list->tail = current_node;
+    }
+    return 0;
+}
+
+/* Deleters */
+bool SLinkedListDeleteAtHead(SLinkedList* list) {
+    // it is necessary to pass a pointer to a pointer here as we want to change the reference of the list's head
+    if(list->head == NULL){
+        printf("*** %s Warning: The list is empty, nothing to delete! ***\n", __func__);
+        return 1;
+    }
+    SLinkedListNode* to_be_deleted = list->head;
+    list->head = list->head->next;
+    free(to_be_deleted->data);
+    free(to_be_deleted); // deletion of previous head
+    return 0;
+}
+
+bool SLinkedListDeleteAtTail(SLinkedList* list) {
+    if(list->head == NULL){
+        printf("*** %s Warning: The list is empty, nothing to delete! ***\n", __func__);
+        return 1;
+    }
+    SLinkedListNode* current_node = list->head;
+    while(current_node->next->next != NULL){
+        current_node = current_node->next;
+    }
+    SLinkedListNode* to_be_deleted = current_node->next;
+    current_node->next = NULL;
+    list->tail = current_node;
+    free(to_be_deleted->data);
+    free(to_be_deleted);
+
+    return 0;
+}
+
+bool SLinkedListDeleteAtIndex(SLinkedList* list, int index) {
+    if(index == 0){
+        SLinkedListDeleteAtHead(list);
+        return 0;
+    }
+    SLinkedListNode* current_node = list->head;
+    for(int i = 0; i<index-1; i++){
+        // we must stop at the index prior to the target in order to rearrange the 'next' pointers
+        current_node = current_node->next;
+        if (current_node->next == NULL){
+            printf("Delete at index: index %d is invalid!\n", index);
+            return 1;
+        }
+    }
+        
+    SLinkedListNode* to_be_deleted = current_node->next;
+    // shifting 'next' pointers here
+    current_node->next  = current_node->next->next;
+    // freeing up memory allocated by to be deleted node
+    free(to_be_deleted->data);
+    free(to_be_deleted);
+    
+    return 0;
+}
+
+void SLinkedListDelete(SLinkedList* list) {
+    SLinkedListNode* to_be_deleted = NULL;
+    if(list == NULL){
+        return;
+    }
+    SLinkedListNode* current_node = list->head;
+    while(current_node!= NULL){
+        to_be_deleted = current_node;
+        current_node = (current_node)->next;
+        free(to_be_deleted->data);
+        free(to_be_deleted);
+    }
+    free(list);
+    list->head = NULL; // marking the list as empty
+}
+
+/* Getters */
+SLinkedListNode* SLinkedListGetAtIndex(SLinkedList* list, int index) {
+    SLinkedListNode* current_node = list->head;
+    if (index < 0){
+        return NULL;
+    }
+    for(int i = 0; i<index; i++){
+        // we must stop at the index prior to the target in order to rearrange the 'next' pointers
+        current_node = current_node->next;
+        if (current_node == NULL){
+            // if it is the tail
+            return  NULL;
+        }
+    }
+    return current_node;
+}
+
+SLinkedListNode* SLinkedListGetHead(SLinkedList* list){
+    return list->head;
+}
+
+SLinkedListNode* SLinkedListGetTail(SLinkedList* list){
+    return list->tail;
+}
+
+#ifdef comment
+int SLinkedListDump(SLinkedListNode* head){
     if(head == NULL){
         printf("*** %s Warning: The list is empty, add a head to it! ***\n", __func__);
         return 1; // empty list
@@ -74,131 +233,12 @@ int SLinkedListDump(SLinkedList* head){
     
 }
 
-SLinkedList* SLinkedListGet(SLinkedList* head, int index) {
-    for(int i = 0; i<index; i++){
-        // we must stop at the index prior to the target in order to rearrange the 'next' pointers
-        head = head->next;
-        if (head == NULL){
-            // if it is the tail
-            printf("Get at index: index %d is invalid!\n", index);
-            return  NULL;
-        }
-    }
-    return head;
-}
-
-SLinkedList* SLinkedListGetHead(SLinkedList* head){
-    return SLinkedListGet(head, 0);
-}
-
-SLinkedList* SLinkedListGetTail(SLinkedList* head){
-    while(head->next != NULL){
-        head = head->next;
-    }
-    return head;
-}
-
-void SLinkedListAddAtHead(SLinkedList** head, int val) {
-    // it is necessary to pass a pointer to a pointer here as we want to change the reference of the list's head
-    SLinkedList* new_node = SLinkedListCreateNode(val);
-    new_node->next = *head; // the new node is going to be the new head, so the current head will be its next element
-    *head = new_node; // head now points at new node
-}
-
-void SLinkedListDeleteAtHead(SLinkedList** head) {
-    // it is necessary to pass a pointer to a pointer here as we want to change the reference of the list's head
-    SLinkedList* to_be_deleted = *head;
-    *head = (*head)->next; // head now points at second node
-    free(to_be_deleted); // deletion of previous head
-}
-
-bool SLinkedListAddAtTail(SLinkedList* head, int val) {
-    if(head == NULL){
-        printf("*** %s Warning: The list is empty, add a head to it! ***\n", __func__);
-        return 1;
-    }
-    SLinkedList* new_node = SLinkedListCreateNode(val);
-    if(is_cyclic(head, NULL) >= 0){
-        // -1 will also return true as it is different than 0
-        printf("Can't add element %d: the list is cyclic, it has no tail! \n", val);
-        return 1;
-    }
-    while(head->next != NULL){
-        head = head->next;
-    }
-    head->next = new_node;
-    return 0;
-}
-
-bool SLinkedListDeleteAtTail(SLinkedList* head) {
-    if(head == NULL){
-        printf("*** %s Warning: The list is empty, add a head to it! ***\n", __func__);
-        return 1;
-    }
-    if(is_cyclic(head, NULL) >= 0){
-        // -1 will also return true as it is different than 0
-        printf("Can't delete tail: the list is cyclic, it has no tail! \n");
-        return 1;
-    }
-    while(head->next->next != NULL){
-        head = head->next;
-    }
-    SLinkedList* to_be_deleted = head->next;
-    head->next = NULL;
-    free(to_be_deleted); // deletion of previous head
-
-    return 0;
-}
-
-bool SLinkedListAddAtIndex(SLinkedList* head, int index, int val) {
-    SLinkedList* new_node = SLinkedListCreateNode(val);
-    if(index == 0){
-        printf("To add nodes to the head of the list, use the SLinkedListAddAtHead function \n");
-        return 1;
-    }
-    for(int i = 0; i<index-1; i++){
-        // we must stop at the index prior to the target in order to rearrange the 'next' pointers
-        if (head->next == NULL){
-            // if it is the tail
-            printf("Delete at index: index %d is invalid!\n", index);
-            return 1;
-        }
-        head = head->next;
-    }
-    // shifting 'next' pointers here 
-    new_node->next = head->next;
-    head->next  = new_node;
-    return 0;
-}
-
-bool SLinkedListDeleteAtIndex(SLinkedList* head, int index) {
-    if(index == 0){
-        printf("To delete the head of the list, use the SLinkedListDeleteAtHead function \n");
-        return 1;
-    }
-    for(int i = 0; i<index-1; i++){
-        // we must stop at the index prior to the target in order to rearrange the 'next' pointers
-        head = head->next;
-        if (head->next == NULL){
-            printf("Delete at index: index %d is invalid!\n", index);
-            return 1;
-        }
-    }
-        
-    SLinkedList* to_be_deleted = head->next;
-    // shifting 'next' pointers here
-    head->next  = head->next->next;
-    // freeing up memory allocated by deleted node
-    free(to_be_deleted);
-    
-    return 0;
-}
 
 /*
-void reverse_linked_list(SLinkedList** head){
+void reverse_linked_list(SLinkedListNode** head){
     int list_len = get_len(*head);
-    SLinkedList* temp_next = NULL;
-    SLinkedList* temp_prev = NULL;
+    SLinkedListNode* temp_next = NULL;
+    SLinkedListNode* temp_prev = NULL;
     
     for(int i = 0; i<list_len; i++){
         temp_next = (*head)->next; // save the next element before changing next pointers
@@ -217,10 +257,10 @@ void reverse_linked_list(SLinkedList** head){
 }
 */
 
-void reverse_linked_list(SLinkedList** head){
+void reverse_linked_list(SLinkedListNode** head){
     
-    SLinkedList* temp_next = NULL;
-    SLinkedList* temp_prev = NULL;
+    SLinkedListNode* temp_next = NULL;
+    SLinkedListNode* temp_prev = NULL;
     
     while((*head) != NULL){
         
@@ -234,19 +274,9 @@ void reverse_linked_list(SLinkedList** head){
     
 }
 
-void SLinkedListFree(SLinkedList** head) {
-    SLinkedList* to_be_deleted = NULL;
-    
-    while((*head)->next != NULL){
-        to_be_deleted = *head;
-        *head = (*head)->next;
-        free(to_be_deleted);
-    }
-    *head = NULL; // marking the list as empty
-}
 
-int calculate_cycle_len(SLinkedList* node){
-    SLinkedList* starting_point = node;
+int calculate_cycle_len(SLinkedListNode* node){
+    SLinkedListNode* starting_point = node;
     int len = 0;
     do{
         len++;
@@ -256,8 +286,8 @@ int calculate_cycle_len(SLinkedList* node){
     return len;
 }
 
-int get_cycle_pos(SLinkedList* head, int len){
-    SLinkedList* iterator = head;
+int get_cycle_pos(SLinkedListNode* head, int len){
+    SLinkedListNode* iterator = head;
     int hops_counter = 0; // number of next calls
     int pos = 0;
     do{
@@ -275,9 +305,9 @@ int get_cycle_pos(SLinkedList* head, int len){
     return pos;
 }
 
-int is_cyclic(SLinkedList* head, int* cycle_len){
-    SLinkedList* slow_iterator = head;
-    SLinkedList* fast_iterator = head;
+int is_cyclic(SLinkedListNode* head, int* cycle_len){
+    SLinkedListNode* slow_iterator = head;
+    SLinkedListNode* fast_iterator = head;
     int cycle_pos = 0;
     // using the two pointer technique to determine whether the linked list is cyclic or not
     // https://github.com/Chanda-Abdul/Several-Coding-Patterns-for-Solving-Data-Structures-and-Algorithms-Problems-during-Interviews/blob/main/%E2%9C%85%20%20Pattern%2003:%20Fast%20%26%20Slow%20pointers.md
@@ -301,7 +331,7 @@ int is_cyclic(SLinkedList* head, int* cycle_len){
     return -1; // the list is not cyclic
 }
 
-int get_len(SLinkedList* head){
+int get_len(SLinkedListNode* head){
     
     int cycle_pos, cycle_len;
     int hops_counter = 0;
@@ -322,7 +352,7 @@ int get_len(SLinkedList* head){
     return hops_counter;
 }
 
-int find_intersection(SLinkedList* head_a, SLinkedList* head_b){
+int find_intersection(SLinkedListNode* head_a, SLinkedListNode* head_b){
     int len_a = get_len(head_a);
     int len_b = get_len(head_b);
     int intersect_pos = 0; // the position will be returned from the perspective of list A
@@ -360,7 +390,7 @@ int find_intersection(SLinkedList* head_a, SLinkedList* head_b){
     return -1; // do not intersect
 }
 
-SLinkedList* SLinkedListShallowCopy(SLinkedList* orig){
+SLinkedListNode* SLinkedListShallowCopy(SLinkedListNode* orig){
     /* the copy will be shallow as no new memory will be allocated, 
        it will just point to the same memory location of the original list,
        meaning that any changes either on the copy or on the original will 
@@ -368,9 +398,9 @@ SLinkedList* SLinkedListShallowCopy(SLinkedList* orig){
      return SLinkedListGetHead(orig);  
 }
 
-SLinkedList* SLinkedListDeepCopy(SLinkedList* orig){
+SLinkedListNode* SLinkedListDeepCopy(SLinkedListNode* orig){
     // create list head with information from the original list
-    SLinkedList* copy = SLinkedListCreateNode(orig->val);
+    SLinkedListNode* copy = SLinkedListCreateNode(orig->val);
 
     int hops_counter = 0;
     int cycle_pos, cycle_len;
@@ -398,7 +428,7 @@ SLinkedList* SLinkedListDeepCopy(SLinkedList* orig){
 }
 
 
-
+#endif
 
 
 
