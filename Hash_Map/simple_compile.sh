@@ -1,1 +1,1 @@
-gcc main.c sLinkedList.c hash_map.c -g -o app
+gcc -I ../SLinkedList -I . main.c ../SLinkedList/sLinkedList.c hash_map.c -g -o app

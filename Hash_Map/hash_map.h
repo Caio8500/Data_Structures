@@ -3,25 +3,34 @@
 
 #include "sLinkedList.h"
 
-#define HASH_MAP_MAX_SIZE 5
+typedef struct HMap HMap;
 
-typedef struct HMap{
-    SLinkedList** buckets; // array of linked lists
-    int n_buckets; 
-    int key_range;
-} HMap;
-
+typedef struct Data{
+    int key; 
+    void* val;
+} Data;
 
 // typedef SLinkedList** HMap; // the hash map is nothing more than an array of Linked Lists, since 
 // we'll create them dinamically, we'll use a pointer of pointers, otherwise we could use
 // SLinkedList* [HASH_MAP_MAX_BUCKETS] HMap; 
 
-bool HMapConfig(HMap* hash_map, int map, int key_range);
+/* Macros for making data access easier syntax-wise */
+#define GET_KEY(list_node) \
+    ((Data*)list_node->data)->key
+
+#define GET_VAL(list_node, data_type) \
+    (*((data_type*)((Data*)list_node->data)->val))
+
+HMap* HMapCreate(int hmap_size, size_t data_size);
+bool HMapConfig(HMap* hash_map, int hmap_size, size_t data_size);
 bool HMapInit(HMap* hash_map);
-void HMapDelete(HMap* hash_map);
+void HMapDelete(HMap** hash_map);
 bool HMapAdd(HMap* hash_map, Data kv_pair);
 bool HMapRemove(HMap* hash_map, int key);
-SLinkedList* HMapGet(HMap* hash_map, int key);
-int HMapComputeHash(int key, int key_range, int n_buckets);
+SLinkedListNode* HMapGet(HMap* hash_map, int key);
+SLinkedListNode* SLinkedListGetByKey(SLinkedList* list, int key);
+SLinkedListNode* SLinkedListGetUpdateByKey(SLinkedList* list, Data kv_pair, size_t data_size);
+bool SLinkedListDeleteByKey(SLinkedList* list, int key);
+int HMapComputeHash(int key, int n_buckets);
 void HMapDump(HMap* hash_map);
 #endif
